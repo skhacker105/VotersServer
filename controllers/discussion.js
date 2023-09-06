@@ -22,9 +22,11 @@ module.exports = {
     edit: (req, res) => {
         let discussionId = req.params.id;
         let edittedDiscussion = req.body;
+        const loginuserid = HELPER.getAuthUserId(req);
 
         DISCUSSION.findById(discussionId).then((discussion) => {
             if (!discussion) return HTTP.error(res, 'There is no discussion with the given id in our database.');
+            if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, 'You cannot edit someone else\'s discussion.');
 
             discussion.title = edittedDiscussion.title;
             discussion.message = edittedDiscussion.message;
@@ -124,6 +126,7 @@ module.exports = {
         DISCUSSION.findByIdAndDelete(discussionId)
             .then((discussion) => {
                 if (!discussion) return HTTP.error(res, 'There is no voteTypes with the given id in our database.');
+                if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, 'You cannot delete someone else\'s discussion.');
 
                 if (discussion.votes && discussion.votes.length > 0) {
                     const allCalls = discussion.votes.map(v => VOTE.findByIdAndDelete(v._id))
