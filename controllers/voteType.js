@@ -7,7 +7,7 @@ module.exports = {
     add: (req, res) => {
         let votetypeBody = req.body;
         votetypeBody['createdBy'] = HELPER.getAuthUserId(req);
-        votetypeBody['createdOn'] = new Date;
+        votetypeBody['createdOn'] = new Date();
         VOTETYPE.create(votetypeBody).then((votetype) => {
 
             VOTETYPE.findById(votetype._id)

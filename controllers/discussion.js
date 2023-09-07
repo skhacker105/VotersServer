@@ -1,14 +1,16 @@
 const DISCUSSION = require('mongoose').model('Discussion');
 const VOTE = require('mongoose').model('Vote');
-const HELPER = require('../utilities/helper')
-const HTTP = require('../utilities/http')
-module.exports = {
+const HELPER = require('../utilities/helper');
+const HTTP = require('../utilities/http');
+const DISCUSSION_STATES = require('../contants/discussion-state')
 
+module.exports = {
 
     add: (req, res) => {
         let discussionBody = req.body;
         discussionBody['createdBy'] = HELPER.getAuthUserId(req);
-        discussionBody['createdOn'] = new Date;
+        discussionBody['createdOn'] = new Date();
+        discussionBody['state'] = DISCUSSION_STATES.open;
         DISCUSSION.create(discussionBody).then((discussion) => {
 
             DISCUSSION.findById(discussion._id)
@@ -27,9 +29,34 @@ module.exports = {
         DISCUSSION.findById(discussionId).then((discussion) => {
             if (!discussion) return HTTP.error(res, 'There is no discussion with the given id in our database.');
             if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, 'You cannot edit someone else\'s discussion.');
+            if (discussion.state === DISCUSSION_STATES.blocked)
+                return HTTP.error(res, 'You cannot edit a blocked discussion.');
+            if (!discussion.votes.length > 0 && discussion.state !== DISCUSSION_STATES.blocked && discussion.state !== DISCUSSION_STATES.closed)
+                return HTTP.error(res, 'You cannot edit a discussion that is been voted.');
 
             discussion.title = edittedDiscussion.title;
             discussion.message = edittedDiscussion.message;
+            discussion.save();
+
+            DISCUSSION.findById(discussion._id)
+                .then((updatedDiscussion) => {
+
+                    return HTTP.success(res, updatedDiscussion, 'Discussion updated successfully!');
+                }).catch(err => HTTP.handleError(res, err));
+        }).catch(err => HTTP.handleError(res, err));
+    },
+
+    updateState: (req, res) => {
+        let discussionId = req.params.id;
+        let edittedState = req.body;
+        const loginuserid = HELPER.getAuthUserId(req);
+
+        DISCUSSION.findById(discussionId).then((discussion) => {
+            if (!discussion) return HTTP.error(res, 'There is no discussion with the given id in our database.');
+            if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, 'You cannot edit someone else\'s discussion.');
+            if (discussion.state === DISCUSSION_STATES.blocked) return HTTP.error(res, 'You cannot update a blocked discussion.');
+
+            discussion.state = edittedState.newState;
             discussion.save();
 
             DISCUSSION.findById(discussion._id)
@@ -98,7 +125,7 @@ module.exports = {
     getNewsPaper: (req, res) => {
 
         const qry = {
-            
+
         };
         DISCUSSION.find(qry)
             .limit(qry.pageSize)
@@ -132,10 +159,10 @@ module.exports = {
                     const allCalls = discussion.votes.map(v => VOTE.findByIdAndDelete(v._id))
 
                     Promise.all(allCalls)
-                    .then(deletedVotes => {
-                        return HTTP.success(res, 'Deleted successfully'); 
-                    })
-                    .catch(err => HTTP.handleError(res, err));
+                        .then(deletedVotes => {
+                            return HTTP.success(res, 'Deleted successfully');
+                        })
+                        .catch(err => HTTP.handleError(res, err));
                 } else return HTTP.success(res, 'Deleted successfully');
             }).catch(err => HTTP.handleError(res, err));
     },
