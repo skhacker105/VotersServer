@@ -12,7 +12,6 @@ const LOGIN_STRATEGY = require('./config/passport').localLogin();
 
 var usersRouter = require('./routes/users');
 var voteRouter = require('./routes/vote');
-var votetypeRouter = require('./routes/voteType');
 var discussionRouter = require('./routes/discussion');
 
 const LOCATION_GUARD =  require('./middlewares/location-guard')
@@ -38,7 +37,6 @@ PASSPORT.use('local-login', LOGIN_STRATEGY);
 
 app.use('/users', usersRouter);
 app.use('/vote', voteRouter);
-app.use('/votetype', votetypeRouter);
 app.use('/discussion', discussionRouter);
 
 // catch 404 and forward to error handler

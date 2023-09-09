@@ -2,7 +2,8 @@ const DISCUSSION = require('mongoose').model('Discussion');
 const VOTE = require('mongoose').model('Vote');
 const HELPER = require('../utilities/helper');
 const HTTP = require('../utilities/http');
-const DISCUSSION_STATES = require('../contants/discussion-state')
+const DISCUSSION_STATES = require('../contants/discussion-state');
+const USER_SELECT_COLUMN = require('../contants/user-select-columns');
 
 module.exports = {
 
@@ -31,10 +32,13 @@ module.exports = {
             if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, 'You cannot edit someone else\'s discussion.');
             if (discussion.state === DISCUSSION_STATES.blocked)
                 return HTTP.error(res, 'You cannot edit a blocked discussion.');
-            if (!discussion.votes.length > 0 && discussion.state !== DISCUSSION_STATES.blocked && discussion.state !== DISCUSSION_STATES.closed)
+            if (discussion.state !== DISCUSSION_STATES.blocked && discussion.state !== DISCUSSION_STATES.closed)
                 return HTTP.error(res, 'You cannot edit a discussion that is been voted.');
 
+            discussion.startDate = edittedDiscussion.startDate;
+            discussion.endDate = edittedDiscussion.endDate;
             discussion.title = edittedDiscussion.title;
+            discussion.voteTypes = edittedDiscussion.voteTypes;
             discussion.message = edittedDiscussion.message;
             discussion.save();
 
@@ -71,12 +75,13 @@ module.exports = {
         let discussionId = req.params.id;
 
         DISCUSSION.findById(discussionId)
-            .populate('createdBy')
+            .populate('createdBy', USER_SELECT_COLUMN)
             .populate('votes')
             .populate({
                 path: 'votes',
                 populate: {
-                    path: 'user'
+                    path: 'user',
+                    select: USER_SELECT_COLUMN
                 }
             })
             .then((discussion) => {
@@ -102,24 +107,32 @@ module.exports = {
 
         const loggedInId = HELPER.getAuthUserId(req);
         const qry = req.body;
-        DISCUSSION.find({ createdBy: loggedInId })
-            .limit(qry.pageSize)
-            .skip(qry.pageSize * qry.pageNumber)
-            .populate('createdBy')
-            .populate('votes')
-            .populate({
-                path: 'votes',
-                populate: {
-                    path: 'user'
-                }
-            })
-            .then((discussions) => {
-                if (!discussions) return HTTP.error(res, 'There is no discussions in our database.');
+        let sorter = {};
+        sorter[qry.sortColumn] = qry[qry.sortOrder]
+        DISCUSSION.find({ createdBy: loggedInId }).count()
+            .then(count => {
+                DISCUSSION.find({ createdBy: loggedInId })
+                    .limit(qry.pageSize)
+                    .skip(qry.pageSize * qry.pageNumber)
+                    .sort(sorter)
+                    .populate('createdBy', USER_SELECT_COLUMN)
+                    .populate('votes')
+                    .populate({
+                        path: 'votes',
+                        populate: {
+                            path: 'user',
+                            select: USER_SELECT_COLUMN
+                        }
+                    })
+                    .then((discussions) => {
+                        if (!discussions) return HTTP.error(res, 'There is no discussions in our database.');
 
-                qry['data'] = discussions;
-                qry['dataLength'] = discussions.length;
-                return HTTP.success(res, qry);
-            }).catch(err => HTTP.handleError(res, err));
+                        qry['data'] = discussions;
+                        qry['dataLength'] = count;
+                        return HTTP.success(res, qry);
+                    }).catch(err => HTTP.handleError(res, err));
+            })
+            .catch(err => HTTP.handleError(res, err));
     },
 
     getNewsPaper: (req, res) => {
@@ -130,12 +143,13 @@ module.exports = {
         DISCUSSION.find(qry)
             .limit(qry.pageSize)
             .skip(qry.pageSize * qry.pageNumber)
-            .populate('createdBy')
+            .populate('createdBy', USER_SELECT_COLUMN)
             .populate('votes')
             .populate({
                 path: 'votes',
                 populate: {
-                    path: 'user'
+                    path: 'user',
+                    select: USER_SELECT_COLUMN
                 }
             })
             .then((discussions) => {

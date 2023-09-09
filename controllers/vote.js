@@ -3,6 +3,7 @@ const HELPER = require('../utilities/helper')
 const HTTP = require('../utilities/http');
 const DISCUSSION = require('mongoose').model('Discussion');
 const DISCUSSION_STATE = require('../contants/discussion-state');
+const USER_SELECT_COLUMN = require('../contants/user-select-columns');
 
 module.exports = {
 
@@ -20,7 +21,7 @@ module.exports = {
                 VOTE.create(voteBody).then((vote) => {
 
                     VOTE.findById(vote._id)
-                        .populate('user')
+                        .populate('user', USER_SELECT_COLUMN)
                         .then((addedVote) => {
 
                             return HTTP.success(res, addedVote, 'Vote added successfully!');
@@ -50,7 +51,7 @@ module.exports = {
                     .then(vt => {
 
                         VOTE.findById(vote._id)
-                            .populate('user')
+                            .populate('user', USER_SELECT_COLUMN)
                             .then((updateVote) => {
 
                                 return HTTP.success(res, updateVote, 'Vote updated successfully!');
