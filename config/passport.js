@@ -1,22 +1,7 @@
-const JWT = require('jsonwebtoken');
 const LOCAL_STRATEGY = require('passport-local').Strategy;
 const ENCRYPTION = require('../utilities/encryption');
 const USER = require('mongoose').model('User');
 
-const SECRET = '5b362e2a094b97392c3d7bba';
-
-function generateToken(userInfo) {
-    const USER = {
-        _id: userInfo._id,
-        email: userInfo.email,
-        name: userInfo.name,
-        avatar: userInfo.avatar,
-        isAdmin: userInfo.isAdmin
-    };
-    const PAYLOAD = { sub: USER };
-
-    return JWT.sign(PAYLOAD, SECRET, { expiresIn: +process.env.sessionExpiry });
-}
 
 module.exports = {
     localRegister: () => {
@@ -41,8 +26,7 @@ module.exports = {
 
             USER.create(user).then((newUser) => {
 
-                let token = generateToken(newUser);
-                return done(null, token);
+                return done(null, newUser);
 
             }).catch(() => {
                 return done(null, false);
@@ -55,8 +39,10 @@ module.exports = {
         return new LOCAL_STRATEGY({
             usernameField: 'email',
             passwordField: 'password',
-            session: false
-        }, (email, password, done) => {
+            session: false,
+            passReqToCallback: true
+        }, (req, email, password, done) => {
+
             USER.findOne({ email: { $regex: new RegExp(email, 'i') } })
                 .then((user) => {
                     if (!user) {
@@ -67,11 +53,8 @@ module.exports = {
                         return done(null, false);
                     }
 
-                    let token = generateToken(user);
-
-                    return done(null, token);
+                    return done(null, user);
                 });
-        }
-        );
+        });
     }
 };

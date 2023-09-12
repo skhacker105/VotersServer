@@ -16,6 +16,11 @@ module.exports = {
         return ENCRYPTION.parseJwt(req.headers.authorization).sub._id;
     },
 
+    getAuthLocations: (req) => {
+        const sub = ENCRYPTION.parseJwt(req.headers.authorization).sub;
+        return [sub?.longitude, sub?.latitude];
+    },
+
     isAdmin: (req) => {
         return ENCRYPTION.parseJwt(req.headers.authorization).sub.isAdmin;
     },
