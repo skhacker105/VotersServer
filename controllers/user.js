@@ -23,10 +23,10 @@ function generateToken(userInfo, longitude, latitude) {
     return JWT.sign(PAYLOAD, SECRET, { expiresIn: +process.env.sessionExpiry });
 }
 
-function logLocationChanged(req) {
+function logLocationChanged(req, dbuserId = undefined) {
     return new Promise((resolve, reject) => {
         const [longitude, latitude] = getLongLat(req);
-        const userId = HELPER.getAuthUserId(req);
+        const userId = dbuserId ? dbuserId : HELPER.getAuthUserId(req);
         if (!userId) return reject('No loggedin user found.');
 
         USER.findById(userId).then((user) => {
@@ -78,12 +78,16 @@ module.exports = {
                 });
             }
 
-            let token = generateToken(user, longitude, latitude);
+            logLocationChanged(req, newuser._id)
+            .then((token) => {
+                if (!token) HTTP.error(res, 'Location Registration failed');
 
-            return res.status(200).json({
-                message: "Registration successful!",
-                data: token,
-            });
+                return res.status(200).json({
+                    message: "Registration successful!",
+                    data: token,
+                });
+            })
+            .catch((err) => HTTP.handleError(res, err));
         })(req, res);
     },
 
@@ -95,12 +99,16 @@ module.exports = {
                 });
             }
 
-            let token = generateToken(user, 'longitude', 'latitude');
+            logLocationChanged(req, user._id)
+            .then((token) => {
+                if (!token) HTTP.error(res, 'Location Registration failed');
 
-            return res.status(200).json({
-                message: "Login successful!",
-                data: token,
-            });
+                return res.status(200).json({
+                    message: "Login successful!",
+                    data: token,
+                });
+            })
+            .catch((err) => HTTP.handleError(res, err));
         })(req, res);
     },
 
