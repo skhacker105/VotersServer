@@ -1,6 +1,9 @@
 module.exports = {
-    open: 'OPEN',
-    closed: 'CLOSE',
-    reopened: 'RE-OPEN',
-    blocked: 'BLOCK'
+    draft: 'draft',
+    open: 'open',
+    closed: 'closed',
+    reopened: 'reopened',
+    blocked: 'blocked',
+    regOpen: 'regOpen',
+    regClose: 'regClose'
 };

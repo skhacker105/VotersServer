@@ -1,35 +1,43 @@
-const VOTE = require('mongoose').model('Vote');
-const HELPER = require('../utilities/helper')
-const HTTP = require('../utilities/http');
-const DISCUSSION = require('mongoose').model('Discussion');
-const DISCUSSION_STATE = require('../contants/discussion-state');
-const USER_SELECT_COLUMN = require('../contants/user-select-columns');
+const VOTE = require("mongoose").model("Vote");
+const HELPER = require("../utilities/helper");
+const HTTP = require("../utilities/http");
+const DISCUSSION = require("mongoose").model("Discussion");
+const DISCUSSION_STATE = require("../contants/discussion-state");
+const USER_SELECT_COLUMN = require("../contants/user-select-columns");
+
+function isVotingBlocked(discussion) {
+    return (
+        discussion.state === DISCUSSION_STATE.closed ||
+        discussion.state === DISCUSSION_STATE.blocked ||
+        discussion.state === DISCUSSION_STATE.draft ||
+        HELPER.isVotingOpen(discussion) ||
+        HELPER.isRegistrationOpen(discussion)
+        // (discussion.startDate && discussion.endDate && !HELPER.isTodayInDateRange(discussion.startDate, discussion.endDate))
+    );
+}
 
 module.exports = {
-
-
     add: (req, res) => {
         let voteBody = req.body;
-        voteBody['createdBy'] = HELPER.getAuthUserId(req);
-        voteBody['createdOn'] = new Date();
+        voteBody["createdBy"] = HELPER.getAuthUserId(req);
+        voteBody["createdOn"] = new Date();
 
         DISCUSSION.findById(voteBody.discussion)
-            .then(discussion => {
-                if (discussion.state === DISCUSSION_STATE.closed || discussion.state === DISCUSSION_STATE.blocked)
-                    return HTTP.error(res, `Voting is blocked.`);
+            .then((discussion) => {
+                if (isVotingBlocked(discussion)) return HTTP.error(res, `Voting is blocked.`);
 
-                VOTE.create(voteBody).then((vote) => {
-
-                    VOTE.findById(vote._id)
-                        .populate('user', USER_SELECT_COLUMN)
-                        .then((addedVote) => {
-
-                            return HTTP.success(res, addedVote, 'Vote added successfully!');
-                        }).catch(err => HTTP.handleError(res, err));
-                }).catch(err => HTTP.handleError(res, err));
+                VOTE.create(voteBody)
+                    .then((vote) => {
+                        VOTE.findById(vote._id)
+                            .populate("user", USER_SELECT_COLUMN)
+                            .then((addedVote) => {
+                                return HTTP.success(res, addedVote, "Vote added successfully!");
+                            })
+                            .catch((err) => HTTP.handleError(res, err));
+                    })
+                    .catch((err) => HTTP.handleError(res, err));
             })
-            .catch(err => HTTP.handleError(res, err));
-
+            .catch((err) => HTTP.handleError(res, err));
     },
 
     edit: (req, res) => {
@@ -38,54 +46,54 @@ module.exports = {
         const loginuserid = HELPER.getAuthUserId(req);
 
         VOTE.findById(voteId)
-            .populate('discussion')
+            .populate("discussion")
             .then((vote) => {
-                if (!vote) return HTTP.error(res, 'There is no vote with the given id in our database.');
-                if (!vote.user.equals(loginuserid)) return HTTP.error(res, 'You cannot edit someone else\'s vote.');
-                if (vote.discussion.state === DISCUSSION_STATE.closed || vote.discussion.state === DISCUSSION_STATE.blocked)
-                    return HTTP.error(res, `Voting cannot be edited for blocked discussion.`);
+                if (!vote) return HTTP.error(res, "There is no vote with the given id in our database.");
+                if (!vote.user.equals(loginuserid)) return HTTP.error(res, "You cannot edit someone else's vote.");
+                if (isVotingBlocked(vote.discussion)) return HTTP.error(res, `Voting cannot be edited for THIS discussion.`);
+                    
 
                 vote.message = edittedVote.message;
                 vote.voteType = edittedVote.voteType;
                 vote.save()
-                    .then(vt => {
-
+                    .then((vt) => {
                         VOTE.findById(vote._id)
-                            .populate('user', USER_SELECT_COLUMN)
+                            .populate("user", USER_SELECT_COLUMN)
                             .then((updateVote) => {
-
-                                return HTTP.success(res, updateVote, 'Vote updated successfully!');
-                            }).catch(err => HTTP.handleError(res, err));
+                                return HTTP.success(res, updateVote, "Vote updated successfully!");
+                            })
+                            .catch((err) => HTTP.handleError(res, err));
                     })
-                    .catch(err => HTTP.handleError(res, err));
-
-            }).catch(err => HTTP.handleError(res, err));
+                    .catch((err) => HTTP.handleError(res, err));
+            })
+            .catch((err) => HTTP.handleError(res, err));
     },
 
     delete: (req, res) => {
         let voteId = req.params.id;
         const loginuserid = HELPER.getAuthUserId(req);
 
-        VOTE.findById(voteId).then((vote) => {
-            if (!vote) return HTTP.error(res, 'There is no vote with the given id in our database.');
-            if (!vote.user.equals(loginuserid)) return HTTP.error(res, 'You cannot delete someone else\'s vote.');
+        VOTE.findById(voteId)
+            .then((vote) => {
+                if (!vote) return HTTP.error(res, "There is no vote with the given id in our database.");
+                if (!vote.user.equals(loginuserid)) return HTTP.error(res, "You cannot delete someone else's vote.");
 
-            VOTE.findByIdAndDelete(voteId)
-                .then(vt => {
+                VOTE.findByIdAndDelete(voteId)
+                    .then((vt) => {
+                        DISCUSSION.findById(vote.discussion)
+                            .then((discussion) => {
+                                if (!discussion)
+                                    return HTTP.error(res, "Vote was deleted but did not find any linked discussion.");
 
-                    DISCUSSION.findById(vote.discussion)
-                        .then(discussion => {
-                            if (!discussion) return HTTP.error(res, 'Vote was deleted but did not find any linked discussion.');
-
-                            const idx = discussion.votes.findIndex(v => v.equals(voteId))
-                            if (idx >= 0) discussion.votes.splice(idx, 1)
-                            discussion.save()
-                            return HTTP.success(res, 'Vote deleted successfully!');
-                        })
-                        .catch(err => HTTP.handleError(res, err));
-                })
-                .catch(err => HTTP.handleError(res, err));
-
-        }).catch(err => HTTP.handleError(res, err));
-    }
+                                const idx = discussion.votes.findIndex((v) => v.equals(voteId));
+                                if (idx >= 0) discussion.votes.splice(idx, 1);
+                                discussion.save();
+                                return HTTP.success(res, "Vote deleted successfully!");
+                            })
+                            .catch((err) => HTTP.handleError(res, err));
+                    })
+                    .catch((err) => HTTP.handleError(res, err));
+            })
+            .catch((err) => HTTP.handleError(res, err));
+    },
 };

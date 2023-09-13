@@ -9,8 +9,6 @@ module.exports = (req, res, next) => {
 
     if (req.headers.authorization) {
         [authLongitude, authLatitude] = HELPER.getAuthLocations(req);
-        console.log(`\nreq latitude=${req.headers.latitude} \tlongitude=${req.headers.longitude}`)
-        console.log(`\auth latitude=${authLatitude} \tlongitude=${authLongitude}`)
         if (authLongitude && authLatitude) {
             if (req.originalUrl != '/users/registerLocationChange' && (req.headers.longitude != authLongitude || req.headers.latitude != authLatitude)) {
                 return res.status(444).send({

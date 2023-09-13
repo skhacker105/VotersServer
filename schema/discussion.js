@@ -16,6 +16,9 @@ const DISCUSSION_SCHEMA = MONGOOSE.Schema({
     startDate: { type: DATE, dafault: Date.now },
     endDate: { type: DATE, dafault: Date.now },
     votes: [{ type: OBJECT_ID, ref: 'Vote' }],
+    isRegistrationAllowed: { type: BOOLEAN },
+    registrationStartDate: { type: DATE },
+    registrationEndDate: { type: DATE },
     createdBy: { type: OBJECT_ID, ref: 'User' },
     createdOn: { type: DATE, dafault: Date.now }
 });
