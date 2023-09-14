@@ -36,12 +36,12 @@ module.exports = {
     },
     
     isRegistrationOpen(discussion) {
-        if (!discussion["isRegistrationAllowed"] || discussion.state != DISCUSSION_STATE.regOpen) return false;
+        if (discussion["isRegistrationAllowed"] && discussion.state === DISCUSSION_STATE.regOpen) return true;
         return false;
     },
     
     isVotingOpen(discussion) {
-        if (discussion.state === DISCUSSION_STATE.open || discussion.state === DISCUSSION_STATE.reopened) return false;
+        if (discussion.state === DISCUSSION_STATE.open || discussion.state === DISCUSSION_STATE.reopened) return true;
         return false;
     },
 
