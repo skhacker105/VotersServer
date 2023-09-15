@@ -21,8 +21,8 @@ module.exports = {
         let discussionBody = req.body;
         discussionBody["createdBy"] = HELPER.getAuthUserId(req);
         discussionBody["createdOn"] = new Date();
-        if (isVotingOpen(discussionBody)) discussionBody["state"] = DISCUSSION_STATES.open;
-        else if (isRegistrationOpen(discussionBody)) discussionBody["state"] = DISCUSSION_STATES.regOpen;
+        if (HELPER.isVotingOpen(discussionBody)) discussionBody["state"] = DISCUSSION_STATES.open;
+        else if (HELPER.isRegistrationOpen(discussionBody)) discussionBody["state"] = DISCUSSION_STATES.regOpen;
         else discussionBody["state"] = DISCUSSION_STATES.draft;
 
         DISCUSSION.create(discussionBody)
