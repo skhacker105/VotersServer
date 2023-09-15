@@ -5,17 +5,6 @@ const DISCUSSION = require("mongoose").model("Discussion");
 const DISCUSSION_STATE = require("../contants/discussion-state");
 const USER_SELECT_COLUMN = require("../contants/user-select-columns");
 
-function isVotingBlocked(discussion) {
-    return (
-        discussion.state === DISCUSSION_STATE.closed ||
-        discussion.state === DISCUSSION_STATE.blocked ||
-        discussion.state === DISCUSSION_STATE.draft ||
-        HELPER.isVotingOpen(discussion) ||
-        HELPER.isRegistrationOpen(discussion)
-        // (discussion.startDate && discussion.endDate && !HELPER.isTodayInDateRange(discussion.startDate, discussion.endDate))
-    );
-}
-
 module.exports = {
     add: (req, res) => {
         let voteBody = req.body;
@@ -24,7 +13,7 @@ module.exports = {
 
         DISCUSSION.findById(voteBody.discussion)
             .then((discussion) => {
-                if (isVotingBlocked(discussion)) return HTTP.error(res, `Voting is blocked.`);
+                if (!HELPER.isVotingOpen(discussion)) return HTTP.error(res, `Voting is blocked.`);
 
                 VOTE.create(voteBody)
                     .then((vote) => {
@@ -50,7 +39,7 @@ module.exports = {
             .then((vote) => {
                 if (!vote) return HTTP.error(res, "There is no vote with the given id in our database.");
                 if (!vote.user.equals(loginuserid)) return HTTP.error(res, "You cannot edit someone else's vote.");
-                if (isVotingBlocked(vote.discussion)) return HTTP.error(res, `Voting cannot be edited for THIS discussion.`);
+                if (!HELPER.isVotingOpen(vote.discussion)) return HTTP.error(res, `Voting cannot be edited for this discussion.`);
                     
 
                 vote.message = edittedVote.message;
