@@ -1,5 +1,6 @@
 const ENCRYPTION = require("../utilities/encryption");
 const DISCUSSION_STATE = require('../contants/discussion-state');
+const REGISTRATIONSTATE = require('../contants/registration-state');
 
 module.exports = {
     messageType: {
@@ -35,6 +36,29 @@ module.exports = {
         return today >= start && today <= end;
     },
     
+    // Registration State
+    isRegistrationDraft(registration) {
+        if (registration.state === REGISTRATIONSTATE.draft) return true;
+        return false;
+    },
+    
+    isRegistrationPending(registration) {
+        if (registration.state === REGISTRATIONSTATE.pendingApproval) return true;
+        return false;
+    },
+    
+    isRegistrationRejected(registration) {
+        if (registration.state === REGISTRATIONSTATE.rejected) return true;
+        return false;
+    },
+    
+    isRegistrationApproved(registration) {
+        if (registration.state === REGISTRATIONSTATE.approved) return true;
+        return false;
+    },
+    
+
+    // Discussion State
     isRegistrationOpen(discussion) {
         if (discussion["isRegistrationAllowed"] && discussion.state === DISCUSSION_STATE.regOpen) return true;
         return false;

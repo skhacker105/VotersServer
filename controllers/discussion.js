@@ -3,6 +3,7 @@ const VOTE = require("mongoose").model("Vote");
 const HELPER = require("../utilities/helper");
 const HTTP = require("../utilities/http");
 const DISCUSSION_STATES = require("../contants/discussion-state");
+const REGISTRATION_STATES = require("../contants/registration-state");
 const USER_SELECT_COLUMN = require("../contants/user-select-columns");
 
 function validateEditDiscussion(discussion, loginuserid) {
@@ -73,8 +74,9 @@ module.exports = {
         DISCUSSION.findById(discussionId)
             .then((discussion) => {
                 if (!discussion) return HTTP.error(res, "There is no discussion with the given id in our database.");
-                // if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, "You cannot edit someone else's discussion.");
-                if (discussion.state === DISCUSSION_STATES.blocked && edittedState.newState != DISCUSSION_STATES.draft) return HTTP.error(res, "You cannot update a blocked discussion.");
+                if (!discussion.createdBy.equals(loginuserid)) return HTTP.error(res, "You cannot edit someone else's discussion.");
+                if (discussion.state === DISCUSSION_STATES.blocked && edittedState.newState != DISCUSSION_STATES.draft)
+                    return HTTP.error(res, "You cannot update a blocked discussion.");
 
                 discussion.state = edittedState.newState;
                 discussion.save();
@@ -90,6 +92,7 @@ module.exports = {
 
     getSingle: (req, res) => {
         let discussionId = req.params.id;
+        const loginuserid = HELPER.getAuthUserId(req);
 
         DISCUSSION.findById(discussionId)
             .populate("createdBy", USER_SELECT_COLUMN)
@@ -101,9 +104,20 @@ module.exports = {
                     select: USER_SELECT_COLUMN,
                 },
             })
+            .populate({
+                path: "registrations",
+                populate: {
+                    path: "createdBy",
+                    select: USER_SELECT_COLUMN,
+                },
+            })
             .then((discussion) => {
                 if (!discussion) return HTTP.error(res, "There is no discussions in our database with given id.");
 
+                if (!discussion.createdBy.equals(loginuserid))
+                    discussion.registrations = discussion.registrations.filter(
+                        (r) => r.state === REGISTRATION_STATES.approved || r.createdBy.equals(loginuserid)
+                    );
                 return HTTP.success(res, discussion);
             })
             .catch((err) => HTTP.handleError(res, err));
@@ -143,7 +157,10 @@ module.exports = {
                     .then((discussions) => {
                         if (!discussions) return HTTP.error(res, "There is no discussions in our database.");
 
-                        qry["data"] = discussions;
+                        qry["data"] = discussions.map((d) => {
+                            d.registrations = [];
+                            return d;
+                        });
                         qry["dataLength"] = count;
                         return HTTP.success(res, qry);
                     })
@@ -216,5 +233,97 @@ module.exports = {
                 return HTTP.success(res, "Voted successfully");
             })
             .catch((err) => HTTP.handleError(res, err));
+    },
+
+    registerProfile: (req, res) => {
+        const discussionId = req.params.id;
+        const loginuserid = HELPER.getAuthUserId(req);
+        let registerForm = {
+            ui_id: req.body.ui_id,
+            iconOption: req.body.iconOption,
+            name: req.body.name,
+            image: req.body.image,
+            profile: req.body.profile,
+            createdBy: loginuserid,
+            createdOn: new Date(),
+            lastStateChangedOn: new Date(),
+            iconOption: req.body.iconOption,
+            state: REGISTRATION_STATES.draft,
+        };
+
+        DISCUSSION.findById(discussionId)
+            .then((discussion) => {
+                if (!discussion) return HTTP.error(res, "There is no discussion with the given id in our database.");
+                if (!HELPER.isRegistrationOpen(discussion)) return HTTP.error(res, "Registrations are closed for this discussion.");
+
+                // Find if already Voted
+                let registration = discussion.registrations.find((r) => r.ui_id === loginuserid);
+                if (registration) return HTTP.error(res, "You have already sent registration request before.");
+
+                discussion.registrations = discussion.registrations ? discussion.registrations : [];
+                discussion.registrations.push(registerForm);
+                discussion
+                    .save()
+                    .then(() => {
+                        DISCUSSION.findById(discussionId)
+                            .then((updatedDiscussion) => {
+                                return HTTP.success(
+                                    res,
+                                    updatedDiscussion.registrations[updatedDiscussion.registrations.length - 1],
+                                    "Registered successfully!"
+                                );
+                            })
+                            .catch((err) => HTTP.handleError(res, err));
+                    })
+                    .catch((err) => HTTP.handleError(res, err));
+            })
+            .catch((err) => HTTP.handleError(res, err));
+    },
+
+    updateProfile: (req, res) => {
+        const discussionId = req.params.id;
+        const loginuserid = HELPER.getAuthUserId(req);
+
+        DISCUSSION.findById(discussionId)
+            .then((discussion) => {
+                if (!discussion) return HTTP.error(res, "There is no discussion with the given id in our database.");
+                if (!HELPER.isRegistrationOpen(discussion)) return HTTP.error(res, "Registrations are closed for this discussion.");
+
+                let registration = discussion.registrations.find((r) => r.ui_id === loginuserid);
+                if (!registration) return HTTP.error(res, "Cannot find your registration to update.");
+                if (!registration.createdBy.equals(loginuserid)) return HTTP.error(res, "You cannot edit someone else's profile.");
+                if (!HELPER.isRegistrationDraft(registration) && !HELPER.isRegistrationRejected(registration))
+                    return HTTP.error(res, "You cannot edit your profile now.");
+
+                registration.profile = req.body.profile;
+                discussion.save();
+
+                return HTTP.success(res, registration, "Profile updated");
+            })
+            .catch((err) => HTTP.handleError(res, err));
+    },
+
+    updateRegistrationState: (req, res) => {
+        const discussionId = req.params.id;
+        const registrationId = req.params.registration_id;
+        const loginuserid = HELPER.getAuthUserId(req);
+        const newState = req.body.newState;
+
+        DISCUSSION.findById(discussionId)
+            .then((discussion) => {
+                if (!discussion) return HTTP.error(res, "There is no discussion with the given id in our database.");
+                if (!HELPER.isRegistrationOpen(discussion) && newState != REGISTRATION_STATES.approved && newState != REGISTRATION_STATES.rejected)
+                    return HTTP.error(res, "Registrations are closed for this discussion.");
+
+                // Validate State Change is allowed or not
+                discussion
+                    .validateAndChangeState(registrationId, newState, loginuserid)
+                    .then(() => {
+                        discussion.save();
+                        return HTTP.success(res, "Status changed successfully");
+                    })
+                    .catch((err) => HTTP.handleError(res, err));
+            })
+            .catch((err) => HTTP.error(res, err));
     },
 };

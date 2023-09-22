@@ -1,11 +1,17 @@
-const MONGOOSE = require('mongoose');
+const MONGOOSE = require("mongoose");
 
-const ENCRYPTION = require('../utilities/encryption');
+const ENCRYPTION = require("../utilities/encryption");
 const STRING = MONGOOSE.Schema.Types.String;
 const NUMBER = MONGOOSE.Schema.Types.Number;
 const BOOLEAN = MONGOOSE.Schema.Types.Boolean;
 const OBJECT_ID = MONGOOSE.Schema.Types.ObjectId;
 const DATE = MONGOOSE.Schema.Types.Date;
+
+const STATE_HISTORY = MONGOOSE.Schema({
+    state: { type: STRING },
+    createdBy: { type: OBJECT_ID, ref: "User" },
+    createdOn: { type: DATE, dafault: Date.now },
+});
 
 const VOTE_TYPE_SCHEMA = MONGOOSE.Schema({
     ui_id: { type: STRING, required: true },
@@ -14,20 +20,34 @@ const VOTE_TYPE_SCHEMA = MONGOOSE.Schema({
     matIcon: { type: STRING },
     image: { type: STRING },
     profile: { type: STRING },
-    createdBy: { type: OBJECT_ID, ref: 'User' },
-    createdOn: { type: DATE, dafault: Date.now }
+    createdBy: { type: OBJECT_ID, ref: "User" },
+    createdOn: { type: DATE, dafault: Date.now },
+});
+
+const REGISTER_TYPE_SCHEMA = MONGOOSE.Schema({
+    ui_id: { type: STRING, required: true },
+    iconOption: { type: STRING, required: true },
+    name: { type: STRING, required: true },
+    matIcon: { type: STRING },
+    image: { type: STRING },
+    profile: { type: STRING },
+    createdBy: { type: OBJECT_ID, ref: "User" },
+    createdOn: { type: DATE, dafault: Date.now },
+    state: { type: STRING },
+    stateHistory: [{ type: STATE_HISTORY }],
+    lastStateChangedOn: { type: DATE, dafault: Date.now },
+    lastStateChangedBy: { type: OBJECT_ID, ref: "User" },
 });
 
 const VOTE_SCHEMA = MONGOOSE.Schema({
-    user: { type: OBJECT_ID, required: true, ref: 'User' },
+    user: { type: OBJECT_ID, required: true, ref: "User" },
     message: { type: STRING },
     voteType: { type: VOTE_TYPE_SCHEMA, required: true },
-    discussion: { type: OBJECT_ID, ref: 'Discussion' },
-    createdOn: { type: DATE, dafault: Date.now }
+    discussion: { type: OBJECT_ID, ref: "Discussion" },
+    createdOn: { type: DATE, dafault: Date.now },
 });
 
-
 // const VOTETYPE = MONGOOSE.model('VoteType', VOTE_TYPE_SCHEMA);
-const VOTE = MONGOOSE.model('Vote', VOTE_SCHEMA);
+const VOTE = MONGOOSE.model("Vote", VOTE_SCHEMA);
 
-module.exports = { VOTE, VOTE_TYPE_SCHEMA };
+module.exports = { VOTE, VOTE_TYPE_SCHEMA, REGISTER_TYPE_SCHEMA };

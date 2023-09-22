@@ -24,7 +24,7 @@ USER_SCHEMA.method({
         }
 
         return false;
-    }
+    },
 });
 
 USER_SCHEMA.index({
