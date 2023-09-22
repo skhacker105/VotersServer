@@ -43,6 +43,11 @@ app.use("/discussion", discussionRouter);
 //   next(createError(404));
 // });
 
+// Default path as health check
+app.use('/', (req, res) => {
+    res.send('Vote server is up and running!')
+});
+
 // error handler
 // app.use(function(err, req, res, next) {
 //   // set locals, only providing error in development
